@@ -6,11 +6,11 @@ from dataset.Dataset import ImageDataset, get_transforms
 from trainer.train_pseudo_labelling import train_supervised, evaluate, train_semisupervised
 from models.simple_convnet import Net
 import matplotlib.pyplot as plt
+import yaml
+import datetime
 
 
-
-
-if __name__=='__main__':
+def get_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size (default: 4)')
@@ -20,8 +20,15 @@ if __name__=='__main__':
     parser.add_argument('--device', default='cuda', type=str,
                         help='Device to be used for computations (in {cpu, cuda:0, cuda:1, ...}, default: cpu)')
 
-    parser.add_argument('--problem_type', type=str, default='semi-supervised', choices=['semi-supervised', 'supervised'], help='Wheter to use or not the unlabeled data')
+    parser.add_argument('--problem_type', type=str, default='missing-labels', choices=['missing-labels', 'noisy-labels'], help='Wheter to use or not the unlabeled data')
     args = parser.parse_args()
+
+    return args
+
+
+
+if __name__=='__main__':
+    args = get_arguments()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     assert device.type == args.device, "The chosen device is not available!"
@@ -30,6 +37,7 @@ if __name__=='__main__':
     val_imgs_dir = os.path.join(args.dataset, 'val_data')
     annotations_file = os.path.join(args.dataset, 'train_data/annotations.csv')
     
+    # Load datasets and create DataLoaders
     labeled_train_dataset = ImageDataset(annotations_file=annotations_file, img_dir=os.path.join(train_imgs_dir, 'labeled'), transform=get_transforms())
     labeled_train_dataloader = DataLoader(labeled_train_dataset, args.batch_size)
     if args.problem_type == 'semi-supervised':
@@ -38,6 +46,15 @@ if __name__=='__main__':
     test_dataset = ImageDataset(annotations_file=None, img_dir=val_imgs_dir, transform=get_transforms())
     test_dataloader = DataLoader(test_dataset, args.batch_size)
 
+    # Create logging directory and parameters file
+    model_save_path = os.path.join("saved_models", args.model)
+    if not os.path.exists(model_save_path):
+        os.mkdir(model_save_path)
+    experiment_dir =  os.path.join(model_save_path, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
+    os.makedirs(experiment_dir)
+
+    with open(os.path.join(experiment_dir, 'hparams.yaml'), 'w') as file:
+        yaml.dump(vars(args), file, default_flow_style=False)
 
     if args.model == 'simple_convnet':
         model = Net()
@@ -46,7 +63,7 @@ if __name__=='__main__':
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Number of trainable parameters: ', pytorch_total_params)
 
-    if args.problem_type == 'semi-supervised':
+    if args.problem_type == 'missing-labels':
         # 1. Train the teacher network in a supervised manner
         trained_model = train_supervised(model, args.epochs, labeled_train_dataloader, test_dataloader, args.device)
         
@@ -55,10 +72,10 @@ if __name__=='__main__':
         print('Test Acc : {:.5f} | Test Loss : {:.3f} '.format(test_acc, test_loss))
 
         # Saved the trained model
-        torch.save(trained_model.state_dict(), 'saved_models/supervised_weights')
+        torch.save(trained_model.state_dict(), os.path.join(model_save_path, 'supervised_weights'))
 
         # Load the model
-        model.load_state_dict(torch.load('saved_models/supervised_weights'))
+        model.load_state_dict(torch.load(os.path.join(model_save_path, 'supervised_weights')))
 
         # 2. Train the student model with respect to the weights learnt by the teacher model
         semisupervised_trained_model= train_semisupervised(model, args.epochs, labeled_train_dataloader, unlabeled_train_dataloader, test_dataloader, args.device)
