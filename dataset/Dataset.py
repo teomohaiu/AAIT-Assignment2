@@ -36,7 +36,7 @@ class ImageDataset(Dataset):
         if self.annotations_file:
             return image, label
         else:
-            return image
+            return image, img_path
 
 
 def get_transforms():
