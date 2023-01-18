@@ -6,8 +6,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from dataset.Dataset import ImageDataset, get_transforms
 from trainer.train_pseudo_labelling import train_supervised, evaluate, train_semisupervised, evaluate_for_submission
-from models.simple_convnet import Net
-from models.simple_convnet_2 import ConvNet
+from models.simple_convnet import ConvNet
 from models.resnet50 import resnet50_model
 import matplotlib.pyplot as plt
 import yaml
