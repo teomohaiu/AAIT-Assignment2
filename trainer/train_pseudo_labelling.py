@@ -107,24 +107,20 @@ def train_semisupervised(model, epochs, train_loader, unlabeled_loader, valid_lo
             unlabeled_loss.backward()
             optimizer.step()
             
-            
-            # For every 100 batches train one epoch on labeled data 
-            if batch_idx % 100:
-      
-                # Normal training procedure
-                for X_batch, y_batch in train_loader:
-                    X_batch = Variable(X_batch.to(device))
-                    y_batch = Variable(y_batch.to(device))
-                    output = model(X_batch)
-                    labeled_loss = loss_fn(output, y_batch)
+                   
+         # Normal training procedure
+        for X_batch, y_batch in train_loader:
+            X_batch = Variable(X_batch.to(device))
+            y_batch = Variable(y_batch.to(device))
+            output = model(X_batch)
+            labeled_loss = loss_fn(output, y_batch)
 
-                    optimizer.zero_grad()
-                    labeled_loss.backward()
-                    optimizer.step()
+            optimizer.zero_grad()
+            labeled_loss.backward()
+            optimizer.step()
                 
-                # Now we increment step by 1
-                step += 1
-                
+        # Now we increment step by 1
+        step += 1     
 
         valid_acc, valid_loss = evaluate(model, valid_loader, loss_fn, device)
         print('Epoch: {} : Alpha Weight : {:.5f} | Valid Acc : {:.5f} | Valid Loss : {:.3f} '.format(epoch, alpha_weight(step), valid_acc, valid_loss))
