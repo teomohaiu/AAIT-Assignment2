@@ -41,8 +41,9 @@ class ImageDataset(Dataset):
 
 def get_transforms():
     transform = transforms.Compose([
+        transforms.RandAugment(),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
     return transform
 
