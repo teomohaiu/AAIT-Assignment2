@@ -33,7 +33,7 @@ def evaluate_for_submission(model, test_dataloader, device):
             data = data.to(device)
             output = model(data)
             predicted = torch.max(output,1)[1]
-            filenames = [f'img{os.path.basename(path)}' for path in img_path]
+            filenames = [f'{os.path.basename(path)}' for path in img_path]
             preds = [p.item() for p in predicted]
             img_paths.extend(filenames)
             predictions.extend(preds)
@@ -134,4 +134,5 @@ def train_semisupervised(model, epochs, train_loader, unlabeled_loader, valid_lo
 
 
     return model
+
 
