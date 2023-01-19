@@ -22,8 +22,8 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size (default: 8)')
     parser.add_argument('--checkpoint_supervised_model', type=str, default=None, help='Checkpoint path for the supervised trained model')
     parser.add_argument('--checkpoint_semi_supervised_model', type=str, default=None, help='Checkpoint path for the semi-supervised trained model')
-    parser.add_argument('--dataset', type=str, default='./task1/')
-    parser.add_argument('--model', type=str, default='wide_resnet', choices=['simple_convnet', 'resnet50', 'wide_resnet'])
+    parser.add_argument('--dataset', type=str, default='./task2/')
+    parser.add_argument('--model', type=str, default='resnet50', choices=['simple_convnet', 'resnet50', 'wide_resnet'])
     parser.add_argument('--epochs', type=int, default=100,  help='Number of training epochs (default: 50)')
     parser.add_argument('--learning_rate', type=float, default=0.001,  help='Learning rate value')
     parser.add_argument('--momentum', type=float, default=0.9,  help='Momentum for SGD optimizer')
@@ -31,8 +31,8 @@ def get_arguments():
                         help='Device to be used for computations (in {cpu, cuda:0, cuda:1, ...}, default: cpu)')
 
     parser.add_argument('--train_iterations', type=int, default=1024, help='Number of iteration per epoch')
-    parser.add_argument('--problem_type', type=str, default='missing-labels', choices=['missing-labels', 'noisy-labels'], help='Wheter to use or not the unlabeled data')
-    parser.add_argument('--method', type=str, default='mix-match', choices=['pseudo-labelling', 'mix-match'], help='Wheter to use or not the unlabeled data')
+    parser.add_argument('--problem_type', type=str, default='noisy-labels', choices=['missing-labels', 'noisy-labels'], help='Wheter to use or not the unlabeled data')
+    parser.add_argument('--method', type=str, default='pseudo-labelling', choices=['pseudo-labelling', 'mix-match'], help='Wheter to use or not the unlabeled data')
     parser.add_argument('--loss_function', type=str, default='cross-entropy', choices=['cross-entropy', 'negative-loglikelihood'], help='Type of loss to use')
     parser.add_argument('--optimizer', type=str, default='adam', choices=['sgd', 'adam'], help='Type of optimizer to use')
     parser.add_argument('--ema_decay', default=0.999, type=float)
@@ -164,11 +164,28 @@ if __name__=='__main__':
             df = pd.DataFrame(results)
             df.to_csv(os.path.join(experiment_dir, 'submission_ema_model.csv'), index=False)
 
+    elif args.problem_type == 'noisy-labels':
+        if not args.checkpoint_supervised_model:
+            trained_model = train_supervised(model, args.epochs, labeled_train_dataloader, labeled_valid_dataloader, loss_fn, optimizer,args.device)
+        
+            # Saved the trained model
+            torch.save(trained_model.state_dict(), os.path.join(experiment_dir, 'supervised_weights'))
 
-        # Perform prediction on test dataset and save the results
-        img_paths, predictions = evaluate_for_submission(model, test_dataloader, device)
-        results = {}
-        results['sample'] = img_paths
-        results['label'] = predictions
-        df = pd.DataFrame(results)
-        df.to_csv(os.path.join(experiment_dir, 'submission.csv'), index=False)
+            # Load the model
+            model.load_state_dict(torch.load(os.path.join(experiment_dir, 'supervised_weights')))
+        else:
+            model.load_state_dict(torch.load(args.checkpoint_supervised_model))
+
+
+        # Perform evaluation on supervised model
+        valid_acc, valid_loss = evaluate(model, labeled_valid_dataloader, loss_fn, args.device)
+        print('Valid Acc : {:.5f} | Valid Loss : {:.3f} '.format(valid_acc, valid_loss))
+
+
+    # Perform prediction on test dataset and save the results
+    img_paths, predictions = evaluate_for_submission(model, test_dataloader, device)
+    results = {}
+    results['sample'] = img_paths
+    results['label'] = predictions
+    df = pd.DataFrame(results)
+    df.to_csv(os.path.join(experiment_dir, 'submission.csv'), index=False)
