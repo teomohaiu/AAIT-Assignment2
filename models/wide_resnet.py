@@ -4,6 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def wide_resnet_model(ema=False):
+    model = WideResNet(num_classes=100)
+    if ema:
+        for param in model.parameters():
+            param.detach_()
+    return model
+
 class BasicBlock(nn.Module):
     def __init__(self, in_planes, out_planes, stride, dropRate=0.0, activate_before_residual=False):
         super(BasicBlock, self).__init__()
@@ -62,7 +69,7 @@ class WideResNet(nn.Module):
         # global average pooling and classifier
         self.bn1 = nn.BatchNorm2d(nChannels[3], momentum=0.001)
         self.relu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
-        self.fc = nn.Linear(nChannels[3], num_classes)
+        self.fc = nn.Linear(512, num_classes)
         self.nChannels = nChannels[3]
 
         for m in self.modules():
@@ -83,5 +90,6 @@ class WideResNet(nn.Module):
         out = self.block3(out)
         out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.nChannels)
-        return self.fc(out)
+        out = torch.flatten(out, 1) # flatten all dimensions except batch
+        out = self.fc(out)
+        return out
